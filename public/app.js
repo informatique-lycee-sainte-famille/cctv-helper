@@ -160,9 +160,23 @@ document.getElementById("previewBtn").onclick = async () => {
 
 async function copyStreamUrl(url) {
   try {
-    await navigator.clipboard.writeText(url);
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      // Fallback for HTTP / insecure context
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      textArea.style.position = "fixed"; // avoid scrolling
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
     alert("✅ Stream URL copied!");
-  } catch {
+  } catch (err) {
+    console.error("Clipboard error:", err);
     alert("⚠️ Failed to copy URL");
   }
 }
