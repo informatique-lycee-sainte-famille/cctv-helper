@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CCTV Helper</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div class="max-w-6xl mx-auto py-8">
+    <h1 class="text-4xl font-bold mb-6 text-center text-blue-700">CCTV Helper</h1>
+
+    <!-- Camera grid -->
+    <div id="camera-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+    <!-- Add/Edit form -->
+    <div class="mt-8 bg-white p-4 rounded-lg shadow">
+      <h2 class="font-semibold mb-3 text-lg text-gray-700">Add / Edit Camera</h2>
+      <form id="addForm" class="flex flex-col gap-2">
+        <input class="border p-2 rounded" placeholder="Name" id="name" required />
+        <input class="border p-2 rounded" placeholder="Snapshot URL" id="url" required />
+        <input class="border p-2 rounded" placeholder="Port (e.g. 9080)" id="port" required />
+        <input class="border p-2 rounded" placeholder="Refresh delay (s)" id="refresh" required value="0.1" />
+
+        <div class="flex gap-2 mt-2">
+          <button type="button" id="previewBtn"
+            class="bg-gray-600 text-white px-3 py-2 rounded hover:bg-gray-700 flex-1">
+            👁️ Preview
+          </button>
+          <button class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 flex-1">
+            💾 Save
+          </button>
+        </div>
+      </form>
+
+      <div id="previewBox" class="hidden mt-3 text-center">
+        <p class="text-gray-500 mb-1">Preview</p>
+        <img id="previewImg" class="inline-block rounded shadow border" />
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+
+  <style>
+    img {
+        transition: opacity 0.3s ease-in;
+    }
+    img:not([src]) {
+        opacity: 0;
+    }
+    </style>
+</body>
+</html>

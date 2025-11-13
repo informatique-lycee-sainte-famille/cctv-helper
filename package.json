@@ -1,0 +1,28 @@
+{
+  "name": "cctv-helper",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A little program to help use old cctv cameras that only exposes a snapshot url and transforms this into live mjpeg streams for use in other software",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/informatique-lycee-sainte-famille/cctv-helper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/informatique-lycee-sainte-famille/cctv-helper/issues"
+  },
+  "homepage": "https://github.com/informatique-lycee-sainte-famille/cctv-helper#readme",
+  "dependencies": {
+    "basic-auth": "^2.0.1",
+    "body-parser": "^2.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.2"
+  }
+}
