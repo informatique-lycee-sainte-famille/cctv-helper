@@ -81,4 +81,81 @@ function handleStreamFallback(camName, streamUrl, previewUrl) {
   testImg.src = uniquePreviewUrl;
 }
 
+async function editCam(name) {
+  const res = await fetch("/api/cameras");
+  const cams = await res.json();
+  const cam = cams.find((c) => c.name === name);
+  if (!cam) return;
+  document.getElementById("name").value = cam.name;
+  document.getElementById("url").value = cam.url;
+  document.getElementById("refresh").value = cam.refresh;
+  editing = cam.name;
+  refresh();
+}
+
+document.getElementById("addForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const cam = {
+    name: document.getElementById("name").value,
+    url: document.getElementById("url").value,
+    refresh: document.getElementById("refresh").value,
+  };
+  if (editing) {
+    await fetch("/api/cameras/" + editing, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cam),
+    });
+    editing = null;
+  } else {
+    await fetch("/api/cameras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cam),
+    });
+  }
+  e.target.reset();
+  document.getElementById("previewBox").classList.add("hidden");
+  refresh();
+};
+
+document.getElementById("previewBtn").onclick = async () => {
+  const urlField = document.getElementById("url");
+  const nameField = document.getElementById("name");
+  if (!urlField.value) return alert("Enter a snapshot URL first.");
+  const res = await fetch("/api/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: urlField.value, name: nameField.value || "preview" }),
+  });
+  if (!res.ok) return alert("Failed to load preview.");
+  const blob = await res.blob();
+  const img = URL.createObjectURL(blob);
+  document.getElementById("previewImg").src = img;
+  document.getElementById("previewBox").classList.remove("hidden");
+};
+
+async function copyStreamUrl(url) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url);
+    } else {
+      // Fallback for HTTP / insecure context
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      textArea.style.position = "fixed"; // avoid scrolling
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
+    alert("✅ Stream URL copied!");
+  } catch (err) {
+    console.error("Clipboard error:", err);
+    alert("⚠️ Failed to copy URL");
+  }
+}
+
 refresh();
