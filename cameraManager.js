@@ -13,9 +13,6 @@ fs.ensureDirSync(SNAP_DIR);
 
 const activeCameras = new Map();
 
-/**
- * Load camera list from JSON file
- */
 export function loadCameras(file = CAM_FILE) {
   try {
     if (!fs.existsSync(file)) return [];
@@ -26,9 +23,6 @@ export function loadCameras(file = CAM_FILE) {
   }
 }
 
-/**
- * Save camera list to JSON file
- */
 export function saveCameras(cams, file = CAM_FILE) {
   try {
     fs.writeJsonSync(file, cams, { spaces: 2 });
@@ -38,48 +32,47 @@ export function saveCameras(cams, file = CAM_FILE) {
 }
 
 /**
- * Start fetching snapshots + mjpg_streamer for a given camera
+ * Start snapshot loop + ffmpeg RTSP stream
  */
 export function startCamera(cam) {
   const { name, url, port, refresh } = cam;
   const safeName = name.replace(/[^a-z0-9_-]/gi, "_");
   const snapPath = path.join(SNAP_DIR, `${safeName}.jpg`);
 
-  console.log(`▶ Starting camera ${name} on port ${port}`);
+  console.log(`▶ Starting camera ${name} (RTSP on port ${port})`);
 
-  // --- Fetch loop ---
-  const fetchCmd = [
-    "while true; do",
-    `wget -q -O "${snapPath}" "${url}" || echo "⚠ ${name} fetch failed";`,
-    `sleep ${refresh || 0.2};`,
-    "done"
-  ].join(" ");
+  // --- Snapshot loop (unchanged) ---
+  const fetchCmd = `
+    while true; do 
+      wget -q -O "${snapPath}" "${url}" || echo "⚠ ${name} snapshot failed";
+      sleep ${refresh || 0.2};
+    done
+  `;
 
   const fetchLoop = spawn("bash", ["-c", fetchCmd], {
     stdio: "inherit",
   });
 
-  // --- MJPG Streamer ---
-  const streamerCmd = [
-    "LD_LIBRARY_PATH=/usr/local/lib",
-    "mjpg_streamer",
-    `-i "input_file.so -d ${refresh || 0.2} -f ${SNAP_DIR} -n ${safeName}.jpg"`,
-    `-o "output_http.so -w /usr/local/share/mjpg-streamer/www -p ${port}"`,
-  ].join(" ");
+  // --- Replace mjpg_streamer with ffmpeg RTSP push ---
+  const ffmpegCmd = `
+    ffmpeg -re -loop 1 -i "${snapPath}" \
+      -vf fps=${Math.max(1, Math.floor(1 / (refresh || 0.2)))} \
+      -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p \
+      -f rtsp rtsp://127.0.0.1:${port}/stream
+  `;
 
-  const streamer = spawn("bash", ["-c", streamerCmd], {
+  const ffmpeg = spawn("bash", ["-c", ffmpegCmd], {
     stdio: "inherit",
   });
 
-  // --- Track active camera processes ---
-  activeCameras.set(name, { fetchLoop, streamer });
+  activeCameras.set(name, { fetchLoop, ffmpeg });
 
   fetchLoop.on("exit", (code, signal) => {
-    console.log(`↩ Fetch loop for ${name} exited (code=${code}, signal=${signal})`);
+    console.log(`↩ Fetch loop for ${name} exited (${code}, ${signal})`);
   });
 
-  streamer.on("exit", (code, signal) => {
-    console.log(`↩ Streamer for ${name} exited (code=${code}, signal=${signal})`);
+  ffmpeg.on("exit", (code, signal) => {
+    console.log(`↩ FFmpeg stream for ${name} exited (${code}, ${signal})`);
   });
 }
 
@@ -88,14 +81,14 @@ export function startCamera(cam) {
  */
 export function stopCamera(name) {
   const cam = activeCameras.get(name);
-  if (cam) {
-    console.log(`⏹ Stopping camera ${name}`);
-    cam.fetchLoop.kill("SIGTERM");
-    cam.streamer.kill("SIGTERM");
-    activeCameras.delete(name);
-  } else {
+  if (!cam) {
     console.log(`⚠ Tried to stop unknown camera ${name}`);
+    return;
   }
+  console.log(`⏹ Stopping camera ${name}`);
+  cam.fetchLoop.kill("SIGTERM");
+  cam.ffmpeg.kill("SIGTERM");
+  activeCameras.delete(name);
 }
 
 /**
@@ -110,7 +103,7 @@ export function restartAllCameras(cameras) {
  * Stop all cameras
  */
 export function stopAllCameras() {
-  for (const [name, cam] of activeCameras.entries()) {
+  for (const [name] of activeCameras.entries()) {
     stopCamera(name);
   }
 }
