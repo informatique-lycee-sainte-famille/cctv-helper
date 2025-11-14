@@ -32,47 +32,60 @@ export function saveCameras(cams, file = CAM_FILE) {
 }
 
 /**
+ * Wait until a valid snapshot file is created (non-empty)
+ */
+async function waitForValidSnapshot(file) {
+  for (let i = 0; i < 25; i++) {
+    if (fs.existsSync(file)) {
+      const buf = fs.readFileSync(file);
+      if (buf.length > 2000) return true;
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return false;
+}
+
+
+/**
  * Start snapshot loop + ffmpeg RTSP stream
  */
-export function startCamera(cam) {
-  const { name, url, port, refresh } = cam;
+export async function startCamera(cam) {
+  const { name, url, refresh } = cam;
   const safeName = name.replace(/[^a-z0-9_-]/gi, "_");
   const snapPath = path.join(SNAP_DIR, `${safeName}.jpg`);
 
-  console.log(`▶ Starting camera ${name} (RTSP on port ${port})`);
+  console.log(`▶ Starting camera ${name} (RTSP path /${safeName})`);
 
-  // --- Snapshot loop (unchanged) ---
-  const fetchCmd = `
-    while true; do 
-      wget -q -O "${snapPath}" "${url}" || echo "⚠ ${name} snapshot failed";
-      sleep ${refresh || 0.2};
-    done
-  `;
+  // --- Fetch loop (wget snapshots) ---
+  const fetchCmd = [
+    "while true; do",
+    `wget -q -O "${snapPath}" "${url}" || echo "⚠ ${name} snapshot failed";`,
+    `sleep ${refresh || 0.2};`,
+    "done"
+  ].join(" ");
 
-  const fetchLoop = spawn("bash", ["-c", fetchCmd], {
-    stdio: "inherit",
-  });
+  const fetchLoop = spawn("bash", ["-c", fetchCmd], { stdio: "inherit" });
 
-  // --- Replace mjpg_streamer with ffmpeg RTSP push ---
+  // --- Wait for first valid frame ---
+  await waitForValidSnapshot(snapPath);
+
+  // --- Build RTSP path ---
+  const rtspPath = `rtsp://127.0.0.1:9554/${safeName}`;
+
+  // --- FFmpeg → H264 → RTSP ---
   const ffmpegCmd = `
     ffmpeg -re -loop 1 -i "${snapPath}" \
-      -vf fps=${Math.max(1, Math.floor(1 / (refresh || 0.2)))} \
-      -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p \
-      -f rtsp rtsp://127.0.0.1:${port}/stream
+      -c:v libx264 -preset ultrafast -tune zerolatency \
+      -pix_fmt yuv420p -vf fps=5 \
+      -f rtsp "${rtspPath}"
   `;
 
-  const ffmpeg = spawn("bash", ["-c", ffmpegCmd], {
-    stdio: "inherit",
-  });
+  const ffmpegProc = spawn("bash", ["-c", ffmpegCmd], { stdio: "inherit" });
 
-  activeCameras.set(name, { fetchLoop, ffmpeg });
+  activeCameras.set(name, { fetchLoop, ffmpegProc });
 
-  fetchLoop.on("exit", (code, signal) => {
-    console.log(`↩ Fetch loop for ${name} exited (${code}, ${signal})`);
-  });
-
-  ffmpeg.on("exit", (code, signal) => {
-    console.log(`↩ FFmpeg stream for ${name} exited (${code}, ${signal})`);
+  ffmpegProc.on("exit", (code, sig) => {
+    console.log(`↩ FFmpeg stream for ${name} exited (${code}, ${sig})`);
   });
 }
 

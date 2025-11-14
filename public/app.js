@@ -7,7 +7,7 @@ async function refresh() {
   grid.innerHTML = ""; // clear once
 
   for (const cam of cams) {
-    const rtspUrl = `rtsp://${window.location.hostname}:${cam.port}/stream`;
+    const rtspUrl = `rtsp://${window.location.hostname}:9554/${encodeURIComponent(cam.name)}`;
     const previewUrl = `/api/preview/${encodeURIComponent(cam.name)}`;
 
     // 🟦 On affiche le snapshot, pas le RTSP
@@ -27,7 +27,6 @@ async function refresh() {
           Preview mode
         </span>
       </div>
-      <p class="text-xs text-gray-600 mt-1">RTSP Port: <b>${cam.port}</b></p>
       <div class="flex justify-between mt-2">
         <button onclick="copyStreamUrl('${rtspUrl}')"
                 class="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 text-sm">

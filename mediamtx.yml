@@ -1,0 +1,10 @@
+listenIP: 0.0.0.0
+
+rtsp:
+  port: 9554
+  enableTCP: yes
+  enableUDP: no
+
+paths:
+  all:
+    source: publisher
