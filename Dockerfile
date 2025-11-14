@@ -8,7 +8,7 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repo
  && apk add --no-cache bash wget ffmpeg tzdata curl
 
 # Install rtsp-simple-server
-RUN curl -L -o /tmp/rtsp.tar.gz https://github.com/bluenviron/mediamtx/releases/latest/download/mediamtx_linux_amd64.tar.gz \
+RUN curl -L -o /tmp/rtsp.tar.gz https://github.com/bluenviron/mediamtx/releases/download/v1.15.3/mediamtx_v1.15.3_linux_amd64.tar.gz \
  && tar -xzf /tmp/rtsp.tar.gz -C /usr/local/bin mediamtx \
  && rm /tmp/rtsp.tar.gz
 
