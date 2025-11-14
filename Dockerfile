@@ -21,4 +21,4 @@ COPY . .
 EXPOSE 3000 8554 9000-9999
 ENV HTTP_PORT=3000
 
-CMD ["bash", "-c", "mediamtx --config /app/mediamtx.yml & node server.js"]
+CMD ["bash", "-c", "mediamtx /app/mediamtx.yml & node server.js"]
