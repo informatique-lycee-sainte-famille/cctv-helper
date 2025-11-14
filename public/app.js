@@ -80,3 +80,5 @@ function handleStreamFallback(camName, streamUrl, previewUrl) {
 
   testImg.src = uniquePreviewUrl;
 }
+
+refresh();
