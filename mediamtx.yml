@@ -5,7 +5,7 @@ logLevel: info
 ########################
 
 rtsp: yes
-rtspAddress: "0.0.0.0:8555"
+rtspAddress: "0.0.0.0:8556"
 rtspTransports: [tcp]
 
 # Disable UDP completely

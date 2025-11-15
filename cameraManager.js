@@ -39,7 +39,7 @@ export async function startCamera(cam) {
 
   console.log(`▶ Starting camera ${name} → RTSP: /${safeName}`);
 
-  const rtspTarget = `rtsp://127.0.0.1:8555/${safeName}`;
+  const rtspTarget = `rtsp://127.0.0.1:8556/${safeName}`;
 
   // -------------------------
   //  SNAPSHOT FETCH LOOP

@@ -7,7 +7,7 @@ async function refresh() {
   grid.innerHTML = ""; // clear once
 
   for (const cam of cams) {
-    const rtspUrl = `rtsp://${window.location.hostname}:8555/${encodeURIComponent(cam.name)}`;
+    const rtspUrl = `rtsp://${window.location.hostname}:8556/${encodeURIComponent(cam.name)}`;
     const previewUrl = `/api/preview/${encodeURIComponent(cam.name)}`;
 
     // 🟦 On affiche le snapshot, pas le RTSP
