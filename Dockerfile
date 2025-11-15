@@ -1,7 +1,7 @@
 # ===========================
 #  Stage 1 — Build node deps
 # ===========================
-FROM node:24-debian-slim AS build
+FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ RUN npm install --production
 # ===========================
 #  Stage 2 — Runtime
 # ===========================
-FROM node:24-debian-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 
 WORKDIR /app
 
