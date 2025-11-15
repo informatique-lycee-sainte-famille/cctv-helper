@@ -25,6 +25,7 @@ RUN apt update && apt install -y --no-install-recommends \
     gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav \
+    gstreamer1.0-rtsp \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MediaMTX
