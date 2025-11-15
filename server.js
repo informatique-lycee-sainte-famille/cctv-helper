@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import bodyParser from "body-parser";
 import basicAuth from "basic-auth";
@@ -56,7 +57,7 @@ app.get("/api/cameras", (req, res) => res.json(cameras));
 
 app.post("/api/cameras", (req, res) => {
   const cam = req.body;
-  if (!cam.name || !cam.url || !cam.port)
+  if (!cam.name || !cam.url)
     return res.status(400).json({ error: "Missing fields" });
   if (cameras.find((c) => c.name === cam.name))
     return res.status(400).json({ error: "Camera name already exists" });

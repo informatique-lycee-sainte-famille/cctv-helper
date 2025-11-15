@@ -1,17 +1,32 @@
-###############################################
-# Global settings
-###############################################
-
 logLevel: info
-logDestinations: [stdout]
 
-readTimeout: 10s
-writeTimeout: 10s
-writeQueueSize: 512
+########################
+# RTSP SERVER (TCP ONLY)
+########################
 
-###############################################
-# Authentication (open LAN)
-###############################################
+rtsp: yes
+rtspAddress: "0.0.0.0:8554"
+rtspTransports: [tcp]
+
+# Disable UDP completely
+rtpAddress: ""
+rtcpAddress: ""
+multicastIPRange: ""
+multicastRTPPort: 0
+multicastRTCPPort: 0
+
+########################
+# Disable all other servers
+########################
+
+rtmp: no
+hls: no
+webrtc: no
+srt: no
+
+########################
+# AUTH disabled
+########################
 
 authMethod: internal
 authInternalUsers:
@@ -23,76 +38,16 @@ authInternalUsers:
         path:
       - action: read
         path:
-      - action: playback
-        path:
 
-###############################################
-# Control / API / Metrics (disabled)
-###############################################
-
-api: no
-metrics: no
-pprof: no
-playback: no
-
-###############################################
-# RTSP server (enabled only)
-###############################################
-
-rtsp: yes
-rtspAddress: :9554
-rtspTransports: [tcp]   # tcp only = le plus stable avec ffmpeg
-rtspEncryption: "no"
-
-# Désactiver les ports UDP inutiles
-rtspsAddress: ""
-rtpAddress: ""
-rtcpAddress: ""
-multicastIPRange: ""
-multicastRTPPort: 0
-multicastRTCPPort: 0
-srtpAddress: ""
-srtcpAddress: ""
-multicastSRTPPort: 0
-multicastSRTCPPort: 0
-
-###############################################
-# Désactiver RTMP / HLS / WebRTC / SRT
-###############################################
-
-rtmp: no
-hls: no
-webrtc: no
-srt: no
-
-###############################################
-# Default path settings
-###############################################
-
-pathDefaults:
-  # Toutes les cams sont publisheur → c'est ffmpeg qui push
-  source: publisher
-
-  # Pas de limite de lecteurs
-  maxReaders: 0
-
-  # On ne fait pas de redirect / fallback
-  fallback:
-
-  # On évite les timestamps relatifs -> stable
-  useAbsoluteTimestamp: false
-
-  # Pas de record côté MediaMTX (tu gères Frigate)
-  record: no
-
-  # Autoriser ffmpeg à remplacer un stream existant
-  overridePublisher: yes
-
-###############################################
-# Path definitions
-###############################################
+########################
+# PATHS
+########################
 
 paths:
-  # Ce block s'applique à TOUTES les cams
-  all_others:
+  all:
     source: publisher
+
+    # 🚀 IMPORTANT FIX FOR YOUR ISSUE
+    sourceProtocol: tcp
+
+    overridePublisher: yes
