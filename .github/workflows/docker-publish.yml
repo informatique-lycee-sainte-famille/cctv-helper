@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test
   workflow_dispatch:
 
 jobs:
@@ -24,10 +25,19 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set image tag based on branch
+        id: vars
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: ./
           push: true
-          tags: ghcr.io/${{ github.repository }}/cctv-helper-app:latest
           file: ./Dockerfile
+          tags: ghcr.io/${{ github.repository }}/cctv-helper-app:${{ steps.vars.outputs.tag }}

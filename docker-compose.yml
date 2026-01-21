@@ -7,6 +7,9 @@ services:
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=YourStrongPassword
       - HTTP_PORT=3000
+      - SNAPSHOT_URL_TEMPLATE=http://{ip}/snapshot.jpg?size=-1x-1&download=yes&auth=b64_pw_hash
+      - CAM_USERNAME=username
+      - CAM_PASSWORD=password
     ports:
       - "3000:3000"
     volumes:

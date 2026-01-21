@@ -4,8 +4,8 @@ import bodyParser from "body-parser";
 import basicAuth from "basic-auth";
 import fs from "fs-extra";
 import path from "path";
-import os from "os";
 import dotenv from "dotenv";
+import { exec } from "child_process";
 
 dotenv.config();
 
@@ -14,10 +14,9 @@ import {
   saveCameras,
   startCamera,
   stopCamera,
-  stopAllCameras ,
+  stopAllCameras,
   restartAllCameras,
 } from "./cameraManager.js";
-
 
 const app = express();
 const HTTP_PORT = process.env.HTTP_PORT || 3000;
@@ -30,7 +29,9 @@ const PREVIEW_DIR = "/data/previews";
 fs.ensureDirSync(PREVIEW_DIR);
 fs.ensureFileSync(DATA_FILE);
 
-// --- Load cameras ---
+// -------------------------
+// Load cameras config
+// -------------------------
 let cameras = [];
 try {
   cameras = JSON.parse(fs.readFileSync(DATA_FILE, "utf8") || "[]");
@@ -38,11 +39,44 @@ try {
   cameras = [];
 }
 
-// --- Middlewares ---
+// -------------------------
+// Ping status (runtime only)
+// -------------------------
+const pingStatus = new Map();
+
+function pingCamera(ip) {
+  return new Promise((resolve) => {
+    exec(`ping -c 1 -W 1 ${ip}`, (err) => {
+      resolve(!err);
+    });
+  });
+}
+
+async function refreshPingStatus() {
+  for (const cam of cameras) {
+    if (!cam.ip) continue;
+    try {
+      const ok = await pingCamera(cam.ip);
+      pingStatus.set(cam.name, ok);
+    } catch {
+      pingStatus.set(cam.name, false);
+    }
+  }
+}
+
+// initial + periodic refresh
+refreshPingStatus();
+setInterval(refreshPingStatus, 5000);
+
+// -------------------------
+// Middlewares
+// -------------------------
 app.use(bodyParser.json());
 app.use(express.static("public"));
 
-// --- Basic Auth ---
+// -------------------------
+// Basic Auth
+// -------------------------
 app.use((req, res, next) => {
   const user = basicAuth(req);
   if (!user || user.name !== ADMIN_USER || user.pass !== ADMIN_PASSWORD) {
@@ -52,79 +86,102 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- API: Cameras CRUD ---
-app.get("/api/cameras", (req, res) => res.json(cameras));
+// -------------------------
+// API: Cameras
+// -------------------------
+app.get("/api/cameras", (req, res) => {
+  const enriched = cameras.map((cam) => ({
+    ...cam,
+    ping: pingStatus.get(cam.name) ?? false,
+  }));
+  res.json(enriched);
+});
 
 app.post("/api/cameras", (req, res) => {
   const cam = req.body;
-  if (!cam.name || !cam.url)
+
+  if (!cam.name || !cam.ip)
     return res.status(400).json({ error: "Missing fields" });
+
   if (cameras.find((c) => c.name === cam.name))
     return res.status(400).json({ error: "Camera name already exists" });
+
   cameras.push(cam);
   fs.writeFileSync(DATA_FILE, JSON.stringify(cameras, null, 2));
+
   res.json({ success: true });
-  startCamera(cam);
+
+  if (cam.enabled !== false) {
+    startCamera(cam);
+  }
 });
 
 app.put("/api/cameras/:name", (req, res) => {
   const idx = cameras.findIndex((c) => c.name === req.params.name);
   if (idx === -1) return res.status(404).json({ error: "Not found" });
+
+  const old = cameras[idx];
   cameras[idx] = req.body;
+
   fs.writeFileSync(DATA_FILE, JSON.stringify(cameras, null, 2));
+
+  stopCamera(old.name);
+
+  if (req.body.enabled !== false) {
+    startCamera(req.body);
+  }
+
   res.json({ success: true });
-  stopCamera(req.params.name);
-  startCamera(req.body);
 });
 
 app.delete("/api/cameras/:name", (req, res) => {
   const name = req.params.name;
   cameras = cameras.filter((c) => c.name !== name);
   fs.writeFileSync(DATA_FILE, JSON.stringify(cameras, null, 2));
-  res.json({ success: true });
   stopCamera(name);
+  res.json({ success: true });
 });
 
-// --- API: Preview snapshot (fetch & save with Node) ---
-app.post("/api/preview", async (req, res) => {
-  const { url, name } = req.body;
-  if (!url) return res.status(400).send("Missing URL");
+// -------------------------
+// API: Snapshot (backend only)
+// -------------------------
+app.get("/api/preview/:name", async (req, res) => {
+  const camName = req.params.name;
+  const cam = cameras.find((c) => c.name === camName);
 
-  const safeName = name?.replace(/[^a-z0-9_-]/gi, "_") || "preview";
-  const basePath = path.join(PREVIEW_DIR, `${safeName}.jpg`);
+  if (!cam || cam.enabled === false) {
+    return res.status(404).send("Camera not available");
+  }
+
+  const snapshotUrl = process.env.SNAPSHOT_URL_TEMPLATE.replace("{ip}", cam.ip);
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(snapshotUrl, { timeout: 3000 });
     if (!response.ok) throw new Error("Bad response");
 
     const buffer = Buffer.from(await response.arrayBuffer());
-    await fs.writeFile(basePath, buffer);
+    if (!buffer.length) throw new Error("Empty snapshot");
 
-    const stats = await fs.stat(basePath);
-    if (!stats.size) throw new Error("Empty file");
-
-    res.sendFile(path.resolve(basePath), () => {
-    });
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buffer);
   } catch (err) {
-    console.error(`⚠️ Preview fetch failed for ${url}:`, err.message);
+    console.error(`⚠ Snapshot failed for ${camName}:`, err.message);
     res.status(404).send("No preview");
   }
 });
 
-// --- Serve stored snapshots ---
-app.get("/api/preview/:name", (req, res) => {
-  const safeName = req.params.name.replace(/[^a-z0-9_-]/gi, "_");
-  const previewPath = path.join(PREVIEW_DIR, `${safeName}.jpg`);
-  if (!fs.existsSync(previewPath)) return res.status(404).end();
-  res.sendFile(path.resolve(previewPath));
-});
-
-// --- Start server ---
+// -------------------------
+// Start server
+// -------------------------
 app.listen(HTTP_PORT, () => {
   console.log(`🚀 CCTV Helper running on port ${HTTP_PORT}`);
   restartAllCameras(loadCameras());
 });
 
+// -------------------------
+// Graceful shutdown
+// -------------------------
 process.on("SIGINT", () => {
   console.log("\n🛑 Stopping all cameras before exit...");
   stopAllCameras();

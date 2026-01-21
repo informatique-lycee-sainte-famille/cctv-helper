@@ -1,139 +1,143 @@
 let editing = null;
 
+/* ========================= */
+/* Main refresh              */
+/* ========================= */
+
 async function refresh() {
   const res = await fetch("/api/cameras");
   const cams = await res.json();
+
   const grid = document.getElementById("camera-grid");
-  grid.innerHTML = ""; // clear once
+  grid.innerHTML = "";
 
   for (const cam of cams) {
     const rtspUrl = `rtsp://${window.location.hostname}:8556/${encodeURIComponent(cam.name)}`;
     const previewUrl = `/api/preview/${encodeURIComponent(cam.name)}`;
-
-    // 🟦 On affiche le snapshot, pas le RTSP
-    const imgUrl = `${previewUrl}?t=${Date.now()}`;
+    const pingEmoji = cam.ping ? "🟢" : "🔴";
 
     const card = document.createElement("div");
-    card.className = "bg-white rounded shadow p-3 hover:shadow-lg transition border";
+    card.className = "bg-white rounded shadow p-3 border";
+
     card.innerHTML = `
       <h3 class="font-semibold text-gray-700 flex justify-between items-center">
-        ${cam.name}
+        <span>${pingEmoji} ${cam.name}</span>
+        ${cam.enabled === false ? `<span class="text-xs text-red-500">disabled</span>` : ""}
       </h3>
-      <div class="relative">
-        <img id="img-${cam.name}" src="${imgUrl}" alt="Preview of ${cam.name}"
-             class="rounded mt-2 w-full border object-contain">
-        <span id="badge-${cam.name}"
-              class="hidden absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">
-          Preview mode
-        </span>
+
+      <div class="relative mt-2">
+        <img
+          id="img-${cam.name}"
+          class="rounded w-full border object-contain bg-gray-100"
+          style="min-height:180px"
+        />
       </div>
+
       <div class="flex justify-between mt-2">
         <button onclick="copyStreamUrl('${rtspUrl}')"
-                class="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 text-sm">
-          🔗 Copy RTSP URL
+          class="bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 text-sm">
+          🔗 RTSP
         </button>
+
         <div class="flex gap-2">
+          <button onclick="previewCam('${cam.name}')"
+            class="bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700 text-sm">
+            👁️ Preview
+          </button>
+
           <button onclick="editCam('${cam.name}')"
-                  class="bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600 text-sm">✏️ Edit</button>
+            class="bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600 text-sm">
+            ✏️
+          </button>
+
           <button onclick="removeCam('${cam.name}')"
-                  class="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 text-sm">🗑 Delete</button>
+            class="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 text-sm">
+            🗑
+          </button>
         </div>
       </div>
     `;
 
     grid.appendChild(card);
 
-    // keep snapshot fallback logic
-    handleStreamFallback(cam.name, imgUrl, previewUrl);
+    // Auto preview only if enabled
+    if (cam.enabled === false) {
+      setDisabledPlaceholder(cam.name);
+    } else {
+      loadPreview(cam.name);
+    }
   }
 }
 
-/**
- * Handles fallback from snapshot (always) → preview → "no preview"
- */
-function handleStreamFallback(camName, streamUrl, previewUrl) {
-  const img = document.getElementById(`img-${camName}`);
-  const badge = document.getElementById(`badge-${camName}`);
+/* ========================= */
+/* Preview helpers           */
+/* ========================= */
 
-  // always preview mode (because no RTSP in <img>)
-  badge.classList.remove("hidden");
+function loadPreview(name) {
+  const img = document.getElementById(`img-${name}`);
+  const url = `/api/preview/${encodeURIComponent(name)}?t=${Date.now()}`;
 
-  // still validate preview snapshot
-  const testImg = new Image();
-  const uniquePreviewUrl = `${previewUrl}?t=${Date.now()}`;
+  img.src = "";
+  img.alt = "Loading preview...";
 
-  testImg.onload = () => {
-    img.src = uniquePreviewUrl;
-  };
-
-  testImg.onerror = () => {
-    img.src =
-      "data:image/svg+xml;utf8," +
-      encodeURIComponent(
-        `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='200'>
-           <rect width='100%' height='100%' fill='#111827'/>
-           <text x='50%' y='50%' text-anchor='middle'
-             font-size='20' fill='#9ca3af'>No preview available</text>
-         </svg>`
-      );
-  };
-
-  testImg.src = uniquePreviewUrl;
+  const test = new Image();
+  test.onload = () => (img.src = url);
+  test.onerror = () => setNoPreviewPlaceholder(name);
+  test.src = url;
 }
+
+function previewCam(name) {
+  loadPreview(name);
+}
+
+function setDisabledPlaceholder(name) {
+  const img = document.getElementById(`img-${name}`);
+  img.src =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(`
+      <svg xmlns='http://www.w3.org/2000/svg' width='400' height='200'>
+        <rect width='100%' height='100%' fill='#1f2937'/>
+        <text x='50%' y='50%' text-anchor='middle'
+          font-size='20' fill='#9ca3af'>Camera disabled</text>
+      </svg>
+    `);
+}
+
+function setNoPreviewPlaceholder(name) {
+  const img = document.getElementById(`img-${name}`);
+  img.src =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(`
+      <svg xmlns='http://www.w3.org/2000/svg' width='400' height='200'>
+        <rect width='100%' height='100%' fill='#111827'/>
+        <text x='50%' y='50%' text-anchor='middle'
+          font-size='20' fill='#9ca3af'>No preview available</text>
+      </svg>
+    `);
+}
+
+/* ========================= */
+/* CRUD                      */
+/* ========================= */
 
 async function editCam(name) {
   const res = await fetch("/api/cameras");
   const cams = await res.json();
   const cam = cams.find((c) => c.name === name);
   if (!cam) return;
+
   document.getElementById("name").value = cam.name;
-  document.getElementById("url").value = cam.url;
-  document.getElementById("refresh").value = cam.refresh;
+  document.getElementById("ip").value = cam.ip;
+  document.getElementById("enabled").checked = cam.enabled !== false;
+
   editing = cam.name;
-  refresh();
 }
 
-document.getElementById("addForm").onsubmit = async (e) => {
-  e.preventDefault();
-  const cam = {
-    name: document.getElementById("name").value,
-    url: document.getElementById("url").value,
-    refresh: document.getElementById("refresh").value,
-  };
-  if (editing) {
-    await fetch("/api/cameras/" + editing, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cam),
-    });
-    editing = null;
-  } else {
-    await fetch("/api/cameras", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cam),
-    });
-  }
-  e.target.reset();
-  document.getElementById("previewBox").classList.add("hidden");
+async function removeCam(name) {
+  if (!confirm(`Delete camera ${name}?`)) return;
+  await fetch(`/api/cameras/${encodeURIComponent(name)}`, { method: "DELETE" });
   refresh();
-};
-
-document.getElementById("previewBtn").onclick = async () => {
-  const urlField = document.getElementById("url");
-  const nameField = document.getElementById("name");
-  if (!urlField.value) return alert("Enter a snapshot URL first.");
-  const res = await fetch("/api/preview", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: urlField.value, name: nameField.value || "preview" }),
-  });
-  if (!res.ok) return alert("Failed to load preview.");
-  const blob = await res.blob();
-  const img = URL.createObjectURL(blob);
-  document.getElementById("previewImg").src = img;
-  document.getElementById("previewBox").classList.remove("hidden");
-};
+}
 
 async function copyStreamUrl(url) {
   try {
@@ -158,4 +162,46 @@ async function copyStreamUrl(url) {
   }
 }
 
+/* ========================= */
+/* FORM HANDLER (FIX)        */
+/* ========================= */
+
+document.getElementById("addForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const cam = {
+    name: document.getElementById("name").value.trim(),
+    ip: document.getElementById("ip").value.trim(),
+    enabled: document.getElementById("enabled").checked,
+  };
+
+  if (!cam.name || !cam.ip) {
+    alert("Missing fields");
+    return;
+  }
+
+  if (editing) {
+    await fetch(`/api/cameras/${encodeURIComponent(editing)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cam),
+    });
+    editing = null;
+  } else {
+    await fetch("/api/cameras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cam),
+    });
+  }
+
+  e.target.reset();
+  refresh();
+});
+
+/* ========================= */
+/* Init                      */
+/* ========================= */
+
 refresh();
+setInterval(refresh, 5000);

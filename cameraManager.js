@@ -1,17 +1,22 @@
-// cameraManager.js
 import { spawn } from "child_process";
 import fs from "fs-extra";
 import path from "path";
 import dotenv from "dotenv";
+import net from "net";
+import { startBubbleStream } from "./bubbleStreamer.js";
 
 dotenv.config();
 
-const DATA_DIR = "/data";
-const CAM_FILE = path.join(DATA_DIR, "cameras.json");
-
+const DATA_FILE = "/data/cameras.json";
 const activeCameras = new Map();
 
-export function loadCameras(file = CAM_FILE) {
+const RTP_BASE_PORT = 8000;
+
+/* -----------------------------
+   Persistence helpers (REST API)
+-------------------------------- */
+
+export function loadCameras(file = DATA_FILE) {
   try {
     if (!fs.existsSync(file)) return [];
     return fs.readJsonSync(file);
@@ -21,9 +26,9 @@ export function loadCameras(file = CAM_FILE) {
   }
 }
 
-export function saveCameras(cams, file = CAM_FILE) {
+export function saveCameras(cameras, file = DATA_FILE) {
   try {
-    fs.writeJsonSync(file, cams, { spaces: 2 });
+    fs.writeJsonSync(file, cameras, { spaces: 2 });
   } catch (err) {
     console.error("⚠ Failed to save cameras:", err);
   }
@@ -31,59 +36,58 @@ export function saveCameras(cams, file = CAM_FILE) {
 
 
 /**
- * Start GStreamer RTSP stream from HTTP snapshots
+ * Start ffmpeg process for a camera
  */
 export async function startCamera(cam) {
-  const { name, url, refresh = 0.1 } = cam;
+  if (!cam.enabled) {
+    console.log(`⏭ Camera ${cam.name} disabled`);
+    return;
+  }
+
+  const { name, ip, channel = 0, stream = 0 } = cam;
   const safeName = name.replace(/[^a-z0-9_-]/gi, "_");
-
-  console.log(`▶ Starting camera ${name} → RTSP: /${safeName}`);
-
   const rtspTarget = `rtsp://127.0.0.1:8556/${safeName}`;
 
-  // -------------------------
-  //  SNAPSHOT FETCH LOOP
-  // -------------------------
-  const fetchCmd = `while true; do curl -s "${url}" ; sleep ${refresh}; done`;
+  console.log(`▶ Starting Bubble camera ${name} (${ip}) → ${safeName}`);
 
-  const fetchProc = spawn("bash", ["-c", fetchCmd], {
-    stdio: ["ignore", "pipe", "inherit"],
+  const ffmpeg = spawn("ffmpeg", [
+    "-loglevel", "warning",
+    "-fflags", "+genpts",
+    "-use_wallclock_as_timestamps", "1",
+    "-f", "h264",
+    "-i", "-",
+    "-c", "copy",
+    "-f", "rtsp",
+    rtspTarget
+  ], { stdio: ["pipe", "inherit", "inherit"] });
+
+  const bubbleSocket = startBubbleStream({
+    camIp: ip,
+    channel,
+    stream,
+    onNal: (nal) => ffmpeg.stdin.write(nal),
+    onError: (err) => {
+      console.log(`⚠ Bubble error on ${name}: ${err.message}`);
+      stopCamera(name);
+    }
   });
 
-  // -------------------------
-  //  GSTREAMER PIPELINE
-  // -------------------------
-  const gstCmd = [
-    "gst-launch-1.0",
-    "-v",
-    "fdsrc", // input from curl pipe
-    '!', 'image/jpeg,framerate=10/1,width=1280,height=960',
-    '!', 'jpegdec',
-    '!', 'videoconvert',
-    '!', 'videoscale',
-    '!', 'video/x-raw,framerate=10/1,width=1280,height=960',
-    '!',
-    "x264enc tune=zerolatency speed-preset=ultrafast bitrate=2000 key-int-max=20",
-    "!",
-    `rtspclientsink location=${rtspTarget} protocols=4`
-  ].join(" ");
+  const pingInterval = setInterval(() => {
+    const s = new net.Socket();
+    s.setTimeout(1000);
+    s.once("error", () => s.destroy());
+    s.once("timeout", () => s.destroy());
+    s.connect(80, ip, () => s.end());
+  }, 5000);
 
-  const gstProc = spawn("bash", ["-c", gstCmd], {
-    stdio: ["pipe", "inherit", "inherit"],
+  activeCameras.set(name, {
+    ffmpeg,
+    bubbleSocket,
+    pingInterval,
+    cam
   });
 
-  // pipe curl output → gstreamer input
-  fetchProc.stdout.pipe(gstProc.stdin);
-
-  activeCameras.set(name, { fetchProc, gstProc });
-
-  // logs
-  gstProc.on("exit", (code) => {
-    console.log(`↩ GStreamer for ${name} stopped (code ${code}).`);
-  });
-  fetchProc.on("exit", () => {
-    console.log(`↩ Fetch loop for ${name} stopped.`);
-  });
+  ffmpeg.on("exit", () => stopCamera(name));
 }
 
 /**
@@ -91,27 +95,25 @@ export async function startCamera(cam) {
  */
 export function stopCamera(name) {
   const cam = activeCameras.get(name);
-  if (!cam) return console.log(`⚠ Tried to stop unknown camera ${name}`);
+  if (!cam) return;
+  if (!cam) return;
 
-  console.log(`⏹ Stopping camera ${name}`);
+  console.log(`⏹ Stopping ${name}`);
 
-  try { cam.fetchProc.kill("SIGTERM"); } catch {}
-  try { cam.gstProc.kill("SIGTERM"); } catch {}
+  try { cam.bubbleSocket.destroy(); } catch {}
+  try { cam.ffmpeg.kill("SIGTERM"); } catch {}
+  try { clearInterval(cam.pingInterval); } catch {}
 
   activeCameras.delete(name);
 }
 
-/**
- * Stop all
- */
 export function stopAllCameras() {
-  for (const [name] of activeCameras.entries()) stopCamera(name);
+  for (const name of activeCameras.keys()) {
+    stopCamera(name);
+  }
 }
 
-/**
- * Restart all
- */
 export function restartAllCameras(cameras) {
   stopAllCameras();
-  cameras.forEach((cam) => startCamera(cam));
+  cameras.forEach((cam, index) => startCamera(cam, index));
 }

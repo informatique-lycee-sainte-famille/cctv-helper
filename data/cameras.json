@@ -1,0 +1,128 @@
+[
+  {
+    "id": "108-1",
+    "name": "Cam 108-1",
+    "host": "172.16.199.1",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "108-1"
+  },
+  {
+    "id": "108-2",
+    "name": "108-2",
+    "host": "172.16.199.2",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "108-2"
+  },
+  {
+    "id": "bts-1",
+    "name": "Cam bts-1",
+    "host": "172.16.199.4",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "bts-1"
+  },
+  {
+    "id": "bts-2",
+    "name": "bts-2",
+    "host": "172.16.199.5",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "bts-2"
+  },
+  {
+    "id": "220",
+    "name": "220",
+    "host": "172.16.199.3",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "220"
+  },
+  {
+    "id": "rue-porte-droite",
+    "name": "rue-porte-droite",
+    "host": "172.16.199.6",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "rue-porte-droite"
+  },
+  {
+    "id": "120",
+    "name": "120",
+    "host": "172.16.199.7",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "120"
+  },
+  {
+    "id": "escalier-3-1er",
+    "name": "escalier-3-1er",
+    "host": "172.16.199.9",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "escalier-3-1er"
+  },
+  {
+    "id": "escalier-3-rdc",
+    "name": "escalier-3-rdc",
+    "host": "172.16.199.10",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "escalier-3-rdc"
+  },
+  {
+    "id": "122",
+    "name": "122",
+    "host": "172.16.199.11",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "122"
+  },
+  {
+    "id": "passerelle-cdc",
+    "name": "passerelle-cdc",
+    "host": "172.16.199.12",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "passerelle-cdc"
+  },
+  {
+    "id": "207",
+    "name": "207",
+    "host": "172.16.199.13",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "207"
+  },
+  {
+    "id": "rue-porte-gauche",
+    "name": "rue-porte-gauche",
+    "host": "172.16.199.8",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "rue-porte-gauche"
+  },
+  {
+    "id": "couloir-admin-fond",
+    "name": "couloir-admin-fond",
+    "host": "172.16.199.14",
+    "port": 80,
+    "channel": 0,
+    "stream": 0,
+    "rtspPath": "couloir-admin-fond"
+  }
+]

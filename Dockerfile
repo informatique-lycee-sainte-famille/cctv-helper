@@ -16,16 +16,14 @@ FROM node:24-bookworm-slim AS runtime
 
 WORKDIR /app
 
-# Install minimal runtime deps + GStreamer full stack
+# Install minimal runtime deps + FFmpeg
 RUN apt update && apt install -y --no-install-recommends \
-    ca-certificates curl bash tzdata \
-    gstreamer1.0-tools \
-    gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-libav \
-    gstreamer1.0-rtsp \
+    ca-certificates \
+    curl \
+    bash \
+    tzdata \
+    ffmpeg \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MediaMTX
